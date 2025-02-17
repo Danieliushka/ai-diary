@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View, ScrollView, KeyboardAvoidingView, Platform, Animated } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { ThemedView } from '@/components/ThemedView';
@@ -7,6 +7,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks/useAuth';
+import { getChatCompletion, ChatMessage } from '@/lib/openai';
 
 interface Message {
   id: string;
@@ -17,8 +18,25 @@ interface Message {
 
 type ColorScheme = 'light' | 'dark';
 
+const SYSTEM_PROMPT = `Ви - дружній AI асистент з моделлю GPT-4o, який допомагає користувачу вести щоденник, планувати задачі та досягати цілей. 
+Ваші відповіді мають бути корисними, конкретними та підтримуючими. 
+Спілкуйтесь українською мовою та допомагайте користувачу структурувати думки та планувати дії.
+Ви можете:
+1. Аналізувати текст та допомагати покращувати записи
+2. Структурувати інформацію та виділяти головне
+3. Надавати поради щодо тайм-менеджменту
+4. Допомагати в постановці цілей
+5. Мотивувати та підтримувати користувача
+6. Пропонувати конкретні кроки для досягнення цілей
+7. Допомагати аналізувати прогрес та результати
+
+Будьте конкретними у відповідях та пропонуйте практичні рішення.`;
+
 export default function AIChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
+    { role: 'system', content: SYSTEM_PROMPT }
+  ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scheme = useColorScheme();
@@ -37,6 +55,7 @@ export default function AIChatScreen() {
       timestamp: new Date(),
     };
 
+    // Додаємо повідомлення користувача до чату
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
@@ -47,6 +66,13 @@ export default function AIChatScreen() {
     }, 100);
 
     try {
+      // Оновлюємо історію чату
+      const updatedHistory: ChatMessage[] = [
+        ...chatHistory,
+        { role: 'user', content: userMessage.text }
+      ];
+      setChatHistory(updatedHistory);
+
       // Анімація індикатора набору
       Animated.sequence([
         Animated.timing(fadeAnim, {
@@ -62,24 +88,33 @@ export default function AIChatScreen() {
         }),
       ]).start();
 
-      // Тут буде логіка відправки запиту до AI
+      // Отримуємо відповідь від AI
+      const aiResponse = await getChatCompletion(updatedHistory);
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'Це тестова відповідь AI. В майбутньому тут буде справжня відповідь від AI.',
+        text: aiResponse,
         sender: 'ai',
         timestamp: new Date(),
       };
 
+      setMessages(prev => [...prev, aiMessage]);
+      setChatHistory(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+      
+      // Прокручуємо до відповіді AI
       setTimeout(() => {
-        setMessages(prev => [...prev, aiMessage]);
-        setIsLoading(false);
-        // Прокручуємо до відповіді AI
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }, 1000);
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     } catch (error) {
       console.error('Error sending message:', error);
+      // Показуємо повідомлення про помилку
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        text: 'Вибачте, сталася помилка. Спробуйте ще раз.',
+        sender: 'ai',
+        timestamp: new Date()
+      }]);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -279,7 +314,7 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 1,
     shadowRadius: 4,
     elevation: 3,
   },
