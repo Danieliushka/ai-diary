@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, TouchableOpacity, FlatList, View, Platform } from 'react-native';
+import { StyleSheet, TouchableOpacity, FlatList, View, Platform, RefreshControl } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -29,6 +29,7 @@ export default function TasksScreen() {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const colorScheme = useColorScheme();
 
   useEffect(() => {
@@ -145,6 +146,12 @@ export default function TasksScreen() {
     setSelectedTask(task);
     setIsEditModalVisible(true);
   };
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchTasks();
+    setRefreshing(false);
+  }, []);
 
   const renderTask = ({ item }: { item: Task }) => (
     <TouchableOpacity onPress={() => handleTaskPress(item)}>
@@ -265,6 +272,14 @@ export default function TasksScreen() {
           tasks.length === 0 && styles.emptyList
         ]}
         ListEmptyComponent={ListEmptyComponent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors[colorScheme ?? 'light'].text]}
+            tintColor={Colors[colorScheme ?? 'light'].text}
+          />
+        }
       />
 
       <AddTaskModal

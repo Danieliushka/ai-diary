@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, View, ScrollView, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, View, ScrollView, KeyboardAvoidingView, Platform, Animated, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -8,6 +8,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks/useAuth';
 import { getChatCompletion, ChatMessage } from '@/lib/openai';
+import * as Clipboard from 'expo-clipboard';
 
 interface Message {
   id: string;
@@ -119,39 +120,54 @@ export default function AIChatScreen() {
     }
   };
 
+  const handleCopyMessage = async (text: string) => {
+    try {
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Успішно', 'Текст скопійовано до буферу обміну');
+    } catch (error) {
+      Alert.alert('Помилка', 'Не вдалося скопіювати текст');
+    }
+  };
+
   const renderMessage = (message: Message) => (
-    <View
-      key={message.id}
-      style={[
-        styles.messageContainer,
-        message.sender === 'user' ? styles.userMessage : styles.aiMessage,
-        { 
-          backgroundColor: message.sender === 'user' 
-            ? (colorScheme === 'dark' ? '#0A84FF' : Colors.light.tint)
-            : (colorScheme === 'dark' ? '#2C2C2E' : '#E5E5EA')
-        }
-      ]}
-    >
-      <ThemedText style={[
-        styles.messageText,
-        { 
-          color: message.sender === 'user' 
-            ? '#FFFFFF'
-            : (colorScheme === 'dark' ? '#FFFFFF' : '#000000')
-        }
-      ]}>
-        {message.text}
-      </ThemedText>
-      <ThemedText style={[
-        styles.timestamp,
-        { 
-          color: message.sender === 'user' 
-            ? 'rgba(255, 255, 255, 0.7)'
-            : (colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)')
-        }
-      ]}>
-        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </ThemedText>
+    <View key={message.id}>
+      <TouchableOpacity
+        onLongPress={() => handleCopyMessage(message.text)}
+        activeOpacity={0.7}
+      >
+        <View
+          style={[
+            styles.messageContainer,
+            message.sender === 'user' ? styles.userMessage : styles.aiMessage,
+            { 
+              backgroundColor: message.sender === 'user' 
+                ? (colorScheme === 'dark' ? '#0A84FF' : Colors.light.tint)
+                : (colorScheme === 'dark' ? '#2C2C2E' : '#E5E5EA')
+            }
+          ]}
+        >
+          <ThemedText style={[
+            styles.messageText,
+            { 
+              color: message.sender === 'user' 
+                ? '#FFFFFF'
+                : (colorScheme === 'dark' ? '#FFFFFF' : '#000000')
+            }
+          ]}>
+            {message.text}
+          </ThemedText>
+          <ThemedText style={[
+            styles.timestamp,
+            { 
+              color: message.sender === 'user' 
+                ? 'rgba(255, 255, 255, 0.7)'
+                : (colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)')
+            }
+          ]}>
+            {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </ThemedText>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 
